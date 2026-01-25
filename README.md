@@ -14,15 +14,19 @@
 
 ## Introduction
 
-A comprehensive document management system designed to handle document storage, retrieval, workflow automation, and form submissions. The system provides both desktop (EXE) and web interfaces with a focus on user-friendliness for both administrators and end users.
+A comprehensive document management system designed specifically for **government agencies and multi-departmental organizations** to handle document storage, retrieval, workflow automation, and form submissions. The system provides both desktop (EXE) and web interfaces with enterprise-grade security, departmental access controls, and compliance features.
+
+**Primary Target Audience**: Local government agencies with multiple departments requiring secure document sharing and controlled access.
 
 ### Core Capabilities
 - **Document Management**: Upload, version control, metadata, keyword tagging
-- **Full-Text Search**: OCR-enabled search with keyword filtering
-- **Workflow Engine**: Visual workflow designer with automated routing
-- **Forms System**: Dynamic form builder with submissions stored as documents
-- **Automation**: Scheduled tasks for retention, archival, and workflow triggers
+- **Departmental Access Control**: Strict document visibility based on user groups/departments
+- **Full-Text Search**: OCR-enabled search with keyword filtering and department-based restrictions
+- **Workflow Engine**: Inter-departmental workflow routing with approval chains
+- **Forms System**: Public-facing and internal forms with submissions stored as documents
+- **Automation**: Scheduled tasks for retention, archival, and compliance reporting
 - **Multi-Platform Access**: Desktop applications (Windows) and web interface
+- **Government Compliance**: Audit trails, retention policies, FOIA support, public records management
 
 ---
 
@@ -80,12 +84,35 @@ A comprehensive document management system designed to handle document storage, 
 
 **Key Modules**:
 - **Setup Wizard**: First-time system configuration
+- **Department Management**: 
+  - Create and manage organizational departments
+  - Define department hierarchies
+  - Set default document retention by department
+  - Configure inter-departmental sharing rules
 - **Document Type Management**: Define document categories and required metadata
 - **Keyword/Tag Administration**: Create and manage tag hierarchies
-- **User & Role Management**: User accounts, roles, and permissions
-- **Access Control**: Configure document-level and keyword-based permissions
+- **User & Role Management**: 
+  - User accounts, roles, and permissions
+  - Department assignment and group membership
+  - Active Directory/LDAP integration for government networks
+- **Access Control**: 
+  - Configure document-level and keyword-based permissions
+  - Set departmental access rules
+  - Manage cross-department sharing policies
+  - Public records designation rules
+- **Workflow Actions Library**: 
+  - Create custom workflow actions (adhoc operations)
+  - Define action parameters and validation rules
+  - Configure action permissions (which roles can use which actions)
+  - Build action templates for reuse
+  - Test actions before deployment
+- **Compliance Management**:
+  - Configure retention policies by document type and department
+  - Set up legal hold capabilities
+  - Manage FOIA/public records settings
+  - Configure redaction tools
 - **System Settings**: OCR configuration, storage locations, email settings
-- **Audit Log Viewer**: Review all system activities
+- **Audit Log Viewer**: Review all system activities (filterable by department)
 - **Scheduler Dashboard**: Monitor scheduled tasks and execution history
 
 **UX Features**:
@@ -105,6 +132,13 @@ A comprehensive document management system designed to handle document storage, 
 - **Visual Workflow Designer**: Drag-drop flowchart-style canvas
 - **Pre-built Templates**: Common workflow patterns (approval, review, etc.)
 - **State Configuration**: Define approval steps and routing rules
+- **Custom Actions**: 
+  - Select from library of standard actions (approve, reject, comment)
+  - Add custom/adhoc actions created by admins
+  - Configure action parameters (text fields, dropdowns, file uploads)
+  - Set conditional action execution (if/then rules)
+  - Chain multiple actions together
+  - Define action buttons and labels
 - **Keyword-based Routing**: Auto-assign workflows based on document tags
 - **SLA/Deadline Management**: Time-based triggers and alerts
 - **Workflow Simulator**: Test workflows before deployment
@@ -132,6 +166,14 @@ A comprehensive document management system designed to handle document storage, 
 - **Workflow Inbox**: Task management with approve/reject actions
 - **Notification Center**: Alerts and reminders
 - **User Dashboard**: Personalized view with recent documents and pending tasks
+- **Report Builder**:
+  - Create custom reports on documents with drag-drop interface
+  - Filter by keywords, date ranges, document types, workflow status
+  - Visual chart/graph generation (bar, pie, line charts)
+  - Aggregate statistics (document counts, workflow metrics)
+  - Export to PDF, Excel (XLSX), CSV formats
+  - Save report templates for reuse
+  - Schedule recurring reports via Scheduler integration
 
 **UX Features**:
 - Welcome screen with quick actions
@@ -190,6 +232,37 @@ A comprehensive document management system designed to handle document storage, 
 
 ## Key Features
 
+### Departmental Access Control & User Groups
+- **Department Management**:
+  - Define organizational departments (Police, Fire, Public Works, Finance, HR, Legal, etc.)
+  - Hierarchical department structure (parent-child relationships)
+  - Cross-departmental teams and projects
+- **User Group Assignment**:
+  - Users assigned to one or more departments
+  - Primary department and secondary department access
+  - Temporary department access with expiration dates
+  - External user groups (contractors, consultants)
+- **Document Visibility Rules**:
+  - Default: Users only see documents from their departments
+  - Shared documents: Explicit sharing with other departments
+  - Public documents: Visible to all departments (e.g., policies)
+  - Confidential documents: Restricted to specific users within department
+- **Inter-Departmental Workflows**:
+  - Route documents between departments (e.g., budget approval: Finance → City Manager → Council)
+  - Department-based approval chains
+  - Automatic routing based on document type and department
+  - Handoff tracking and accountability
+- **Sharing Controls**:
+  - Request access to documents from other departments
+  - Approval workflow for cross-department access
+  - Time-limited access grants
+  - Share logs and audit trail
+- **Public Records Management**:
+  - Mark documents as "Public Record" for FOIA requests
+  - Separate public portal for accessing public documents
+  - Redaction workflow before public release
+  - Track public records requests and responses
+
 ### Document Management
 - **Upload & Storage**: Multi-file upload, drag-drop, chunked uploads for large files
 - **Versioning**: Full version history with comparison tools
@@ -206,6 +279,12 @@ A comprehensive document management system designed to handle document storage, 
   - Extract and index text for full-text search
 - **Preview Generation**: Thumbnails and document previews
 - **Access Control**: Document-level permissions and keyword-based access rules
+- **Reporting**: 
+  - Custom report builder for end users
+  - Pre-built report templates (document inventory, workflow metrics, usage stats)
+  - Visual dashboards with charts and graphs
+  - Export capabilities (PDF, Excel, CSV)
+  - Scheduled report generation and email distribution
 
 ### Search & Discovery
 - **Full-Text Search**: Search within document content (OCR-extracted text)
@@ -224,18 +303,64 @@ A comprehensive document management system designed to handle document storage, 
 ### Workflow Engine
 - **Visual Designer**: Drag-drop flowchart-style workflow creation
 - **Workflow States**: Define approval, review, and completion steps
+- **Standard Actions**:
+  - Approve, reject, comment, delegate, reassign
+  - Request more information
+  - Send back to previous state
+  - Complete workflow
+- **Custom Actions (Adhoc)**:
+  - Admin-defined actions specific to business needs
+  - Configurable action parameters (text input, dropdowns, date pickers, file attachments)
+  - Action validation rules and required fields
+  - Custom button labels and colors
+  - Execute backend logic (update metadata, trigger integrations, send notifications)
+  - Conditional visibility (show action only if criteria met)
 - **Routing Rules**:
   - Assign to users or roles
   - Keyword-based auto-routing
   - Conditional branching
+  - Action-based routing (different paths based on action taken)
 - **Time Management**:
   - SLA monitoring and alerts
   - Auto-escalation if no action taken
   - Deadline reminders
-- **Actions**: Approve, reject, comment, delegate, reassign
 - **Notifications**: Email/in-app alerts for workflow events
 - **Workflow Templates**: Pre-built workflows for common scenarios
 - **Audit Trail**: Complete history of workflow actions
+
+### Custom Workflow Actions (Adhoc Operations)
+- **Action Library Management** (in Config.exe):
+  - Create custom actions with unique names and descriptions
+  - Define action parameters:
+    - Text input fields (single/multi-line)
+    - Dropdown lists (predefined values)
+    - Date/time pickers
+    - Number inputs with validation
+    - File upload fields
+    - Checkbox/radio button groups
+    - User/role selectors
+  - Set parameter validation rules (required, format, min/max values)
+  - Configure action permissions (role-based access)
+  - Define action outcomes (success/failure states, next workflow state)
+- **Action Types**:
+  - **Document Actions**: Update metadata, add/remove keywords, change document type
+  - **Routing Actions**: Assign to user/group, escalate to manager, send to external system
+  - **Notification Actions**: Send custom email, SMS alert, in-app notification
+  - **Integration Actions**: Call external API, update external database, trigger webhook
+  - **Data Collection Actions**: Gather additional information from user with custom forms
+  - **Approval Variants**: Multi-level approval, conditional approval, signature capture
+- **Action Execution**:
+  - Backend handlers execute action logic
+  - Support for synchronous and asynchronous operations
+  - Error handling with user-friendly messages
+  - Rollback capabilities for failed actions
+  - Audit logging of all action executions
+- **Action Builder UI**:
+  - Drag-drop parameter designer
+  - Visual condition builder (show action if X = Y)
+  - Test mode to simulate action execution
+  - Action templates for common patterns
+  - Import/export actions between environments
 
 ### Forms System
 - **Visual Form Builder**: Drag-drop form designer (web-based)
@@ -267,23 +392,160 @@ A comprehensive document management system designed to handle document storage, 
 - **Batch Processing**:
   - Schedule OCR processing during off-hours
   - Bulk document operations
+- **Report Automation**:
+  - Schedule recurring reports (daily, weekly, monthly)
+  - Auto-generate and email reports to users/groups
+  - Export reports to shared folders
+  - Compliance and audit reports on schedule
 - **Maintenance Tasks**:
   - Database cleanup and optimization
   - Generate usage and compliance reports
 - **Monitoring**: Task execution history, success/failure tracking, email alerts
 
 ### Security & Compliance
-- **Authentication**: JWT-based authentication, SSO support (optional)
-- **Role-Based Access Control (RBAC)**: Admin, Designer, User roles
-- **Document-Level Permissions**: ACLs for granular access control
-- **Keyword-Based Access**: Restrict documents by tags
+- **Authentication**: JWT-based authentication, SSO support (SAML, Active Directory integration)
+- **Role-Based Access Control (RBAC)**: Admin, Designer, User roles with granular permissions
+- **Departmental Isolation**: Users only see documents from their assigned departments
+- **Document-Level Permissions**: ACLs for granular access control beyond departments
+- **Keyword-Based Access**: Restrict documents by tags (e.g., "Confidential", "Public Record")
+- **Cross-Departmental Sharing**: Controlled sharing with audit trail
 - **Encryption**: At rest and in transit (TLS/SSL)
-- **Audit Logging**: Complete trail of all actions (who, what, when)
+- **Audit Logging**: Complete trail of all actions (who, what, when, from which department)
 - **Compliance Features**:
-  - Document retention policies
-  - Right-to-delete (GDPR)
-  - Compliance reporting
-- **Data Privacy**: Personal data handling and anonymization
+  - Document retention policies (federal/state requirements)
+  - Legal hold capabilities (preserve documents during litigation)
+  - Public records management (FOIA/open records requests)
+  - Redaction tools for sensitive information
+  - Chain of custody tracking
+  - Compliance reporting (retention adherence, access reports)
+  - Right-to-delete (GDPR compliance if applicable)
+- **Data Privacy**: 
+  - Personal data handling and anonymization
+  - Citizen privacy protection
+  - Secure handling of sensitive government data (PII, law enforcement, etc.)
+- **Security Features**:
+  - Multi-factor authentication (MFA) for sensitive departments
+  - Session timeout and automatic logout
+  - IP whitelisting for remote access
+  - Failed login attempt tracking
+  - Regular security audit reports
+
+---
+
+## Government Agency Use Cases
+
+### Typical Department Scenarios
+
+#### **Police Department**
+- **Documents**: Incident reports, arrest records, evidence logs, body camera footage metadata
+- **Access**: Restricted to police personnel; shared with legal for prosecution
+- **Workflows**: Evidence chain of custody, case file approval, records release (FOIA)
+- **Retention**: Varies by record type (7 years to permanent)
+
+#### **Finance Department**
+- **Documents**: Purchase orders, invoices, budget reports, contracts, payroll records
+- **Access**: Finance staff; shared with department heads for budget approval
+- **Workflows**: Invoice approval → Finance review → Payment authorization
+- **Retention**: 7+ years for financial records
+
+#### **Public Works**
+- **Documents**: Work orders, project plans, permits, inspection reports, contractor bids
+- **Access**: Public Works staff; some documents public (permits)
+- **Workflows**: Permit application → Review → Inspection → Approval
+- **Retention**: Project records permanent; permits vary
+
+#### **Human Resources**
+- **Documents**: Employee files, performance reviews, benefits, hiring records
+- **Access**: HR only (highly restricted); individual employee access to own records
+- **Workflows**: Hiring approval chain, performance review routing
+- **Retention**: Employment records 7 years after separation
+
+#### **City Clerk**
+- **Documents**: Meeting minutes, ordinances, resolutions, official records
+- **Access**: Most are public records; some executive session materials restricted
+- **Workflows**: Council agenda preparation, minutes approval, records certification
+- **Retention**: Permanent for official records
+
+#### **Legal Department**
+- **Documents**: Contracts, legal opinions, litigation files, correspondence
+- **Access**: Legal staff; shared with relevant departments as needed
+- **Workflows**: Contract review, legal hold management, FOIA response
+- **Retention**: Varies by document type; litigation holds override standard retention
+
+### Inter-Departmental Workflow Examples
+
+**Example 1: Budget Request Workflow**
+```
+Department Head (Any Dept) → Submit Budget Request
+  ↓
+Finance Dept → Review & Analyze
+  ↓
+City Manager → Approve/Modify
+  ↓
+City Council → Final Approval
+  ↓
+Finance Dept → Execute Budget
+```
+
+**Example 2: Public Records Request (FOIA)**
+```
+Public Citizen → Submit Records Request (via public form)
+  ↓
+City Clerk → Route to Relevant Department
+  ↓
+Department → Identify Responsive Documents
+  ↓
+Legal Dept → Review for Exemptions/Redactions
+  ↓
+Department → Apply Redactions
+  ↓
+City Clerk → Release to Requestor
+```
+
+**Example 3: Building Permit Application**
+```
+Public Citizen → Submit Permit Application (public form)
+  ↓
+Building Dept → Initial Review
+  ↓
+Fire Marshal → Fire Code Review (if required)
+  ↓
+Public Works → Utility Review (if required)
+  ↓
+Planning Dept → Zoning Review (if required)
+  ↓
+Building Dept → Issue or Deny Permit
+  ↓
+Inspections Dept → Schedule Inspections
+```
+
+**Example 4: Contract Approval**
+```
+Department → Initiate Contract Request
+  ↓
+Procurement → Verify Compliance
+  ↓
+Legal → Review Contract Terms
+  ↓
+Finance → Verify Budget Availability
+  ↓
+Department Head → Approve
+  ↓
+City Manager → Sign (if over threshold)
+  ↓
+City Clerk → File Executed Contract
+```
+
+### Compliance Requirements for Government
+
+- **Open Records Laws**: Support for FOIA/state open records requests
+- **Retention Schedules**: Configurable by document type per state/federal requirements
+- **Legal Holds**: Preserve documents during litigation or investigations
+- **Public Access**: Separate portal for public document requests
+- **Audit Requirements**: Comprehensive logging for government audits
+- **Data Security**: Protection of sensitive citizen data (PII, law enforcement records)
+- **Accessibility**: Section 508/WCAG compliance for public-facing interfaces
+- **Disaster Recovery**: Backup and recovery for critical government records
 
 ---
 
@@ -346,7 +608,13 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Set up development environment
 - [ ] Create solution structure and shared libraries
 - [ ] Set up version control (Git) and CI/CD pipeline
-- [ ] Design database schema (ER diagrams)
+- [ ] Design database schema (ER diagrams) including:
+  - Department hierarchy structure
+  - User-department relationships (many-to-many)
+  - Document-department visibility rules
+  - Inter-departmental sharing logs
+  - Public records designations
+  - Legal hold tables
 - [ ] Create API documentation structure
 
 #### Week 3-4: Backend Foundation
@@ -356,6 +624,7 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Create user and role management API endpoints
 - [ ] Set up basic CRUD operations for documents
 - [ ] Configure file storage (local or cloud)
+- [ ] Create report generation service foundation
 
 ---
 
@@ -408,6 +677,9 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Create favorites/bookmarks system
 - [ ] Add keyboard shortcuts
 - [ ] Build user preferences and settings
+- [ ] Create report builder interface with drag-drop fields
+- [ ] Implement report preview and export (PDF/Excel/CSV)
+- [ ] Add saved report templates functionality
 
 ---
 
@@ -420,6 +692,9 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Build workflow state machine engine
 - [ ] Implement workflow assignment and routing
 - [ ] Create workflow execution API
+- [ ] Build custom actions framework (action registry, parameter validation)
+- [ ] Implement action execution engine with handlers
+- [ ] Create standard action library (approve, reject, comment)
 
 #### Week 19-20: Workflow.exe - Designer Application
 - [ ] Create workflow designer project (WPF/.NET MAUI)
@@ -427,6 +702,9 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Implement state configuration UI
 - [ ] Create workflow template library
 - [ ] Build deployment wizard
+- [ ] Integrate custom actions library (action selector UI)
+- [ ] Create action configuration panel with parameter mapping
+- [ ] Implement conditional action builder
 
 #### Week 21-22: Workflow Integration
 - [ ] Add workflow inbox to MainApp.exe
@@ -446,6 +724,9 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Create document type configuration UI
 - [ ] Build user/role management interface
 - [ ] Implement permission matrix view
+- [ ] Create custom workflow actions builder
+- [ ] Build action parameter designer (drag-drop)
+- [ ] Implement action testing interface
 
 #### Week 25-26: Advanced Configuration
 - [ ] Create keyword management UI (hierarchy builder)
@@ -472,6 +753,8 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Implement visual schedule calendar
 - [ ] Create task monitoring dashboard
 - [ ] Add execution history viewer
+- [ ] Build scheduled report generation and distribution
+- [ ] Implement report templates for scheduling
 
 ---
 
@@ -510,6 +793,8 @@ A comprehensive document management system designed to handle document storage, 
 - [ ] Implement workflow inbox
 - [ ] Build user dashboard
 - [ ] Add notification center
+- [ ] Create report builder and viewer for web
+- [ ] Implement responsive report charts/graphs
 
 #### Week 39-40: Mobile & PWA
 - [ ] Optimize for mobile devices
@@ -592,13 +877,22 @@ A comprehensive document management system designed to handle document storage, 
 - Error messages with solutions (not just error codes)
 
 #### Accessibility
-- WCAG 2.1 AA compliance
+- **WCAG 2.1 AA compliance** (Section 508 for government requirements)
 - Full keyboard navigation
 - Screen reader compatible (ARIA labels)
 - High contrast mode support
 - Adjustable text size
 - Clear focus indicators
 - Minimum touch target size (44x44px for mobile)
+- Accessible public forms for citizens
+
+#### Government-Specific UX Considerations
+- **Clear Department Indicators**: Always show which department user belongs to
+- **Document Origin Badges**: Visual indicators showing which department owns document
+- **Access Level Indicators**: Clear labels for Public/Internal/Confidential/Restricted
+- **Sharing Notifications**: Alert users when documents are shared across departments
+- **Compliance Warnings**: Notify users about retention policies and legal holds
+- **Citizen-Friendly Public Portal**: Simple, accessible interface for public records requests
 
 ### Application-Specific UX
 
@@ -716,6 +1010,14 @@ Teams can work on these in parallel after Phase 2:
 - **Storage Optimization**: 40% reduction in duplicate documents
 - **Compliance**: 100% adherence to retention policies
 
+### Government-Specific Metrics
+- **FOIA Response Time**: Reduce public records request processing by 60%
+- **Inter-Departmental Collaboration**: Track time saved on cross-department workflows
+- **Audit Readiness**: 100% document traceability for government audits
+- **Public Transparency**: Increase public document availability online
+- **Cost Savings**: Reduce paper storage and physical filing costs
+- **Regulatory Compliance**: Zero compliance violations or missed retention deadlines
+
 ---
 
 ## Next Steps
@@ -731,13 +1033,17 @@ Teams can work on these in parallel after Phase 2:
 
 ### Critical Decisions Needed
 
-- [ ] On-premise vs. cloud deployment?
-- [ ] SQL Server vs. PostgreSQL?
+- [ ] On-premise vs. cloud deployment? (Government may require on-premise for security)
+- [ ] SQL Server vs. PostgreSQL? (Consider existing government IT infrastructure)
 - [ ] Elasticsearch vs. Azure Cognitive Search?
 - [ ] WPF (Windows-only) vs. .NET MAUI (cross-platform)?
 - [ ] React vs. Blazor for web interface?
 - [ ] Free OCR (Tesseract) vs. paid cloud OCR?
 - [ ] Target mobile platforms (iOS/Android)?
+- [ ] Active Directory integration required? (Highly recommended for government)
+- [ ] SSO/SAML integration for existing government authentication?
+- [ ] Dedicated public portal for citizens vs. integrated?
+- [ ] Air-gapped deployment option for sensitive departments (e.g., Police)?
 
 ### Resources Required
 
@@ -757,7 +1063,198 @@ Teams can work on these in parallel after Phase 2:
 - CI/CD pipeline (Azure DevOps, GitHub Actions, or Jenkins)
 - Cloud storage (if using cloud deployment)
 
-**Estimated Timeline**: 9-12 months to MVP (all core features)
+**Estimated Timeline**: 9-12 months to MVP (all core features), +3-6 months for optional integrations
+
+---
+
+## Optional Third-Party Integrations (Post-MVP)
+
+Once the core system is stable and deployed, optional integrations can be added to enhance functionality and connect with existing government systems.
+
+### Integration Framework
+- **Plugin Architecture**: Modular design allowing integrations to be enabled/disabled
+- **Configuration Manager**: UI in Config.exe to manage integration settings
+- **API Connectors**: Pre-built connectors for common systems
+- **Custom Integration SDK**: Tools for developers to build department-specific integrations
+- **Webhooks**: Real-time event notifications to external systems
+- **Data Sync Services**: Scheduled or real-time data synchronization
+
+### Microsoft 365 Integration
+**Purpose**: Leverage existing Microsoft infrastructure in government offices
+
+**Capabilities**:
+- **SharePoint**: 
+  - Sync documents to/from SharePoint libraries
+  - Use DMS as primary storage with SharePoint as backup
+  - Import existing SharePoint documents into DMS
+- **OneDrive**: 
+  - Personal document sync for employees
+  - Offline access to DMS documents via OneDrive
+- **Outlook**: 
+  - Email documents directly into DMS
+  - Attach DMS documents to emails
+  - Workflow notifications via Outlook
+- **Teams**: 
+  - Share DMS documents in Teams channels
+  - DMS bot for searching documents in Teams
+  - Workflow approvals via Teams messages
+- **Active Directory**: 
+  - Single sign-on (SSO)
+  - Auto-sync users and departments
+  - Permission inheritance from AD groups
+
+### Workday Integration
+**Purpose**: Sync HR data and employee documents
+
+**Capabilities**:
+- **Employee Sync**: Automatically create/update user accounts from Workday
+- **Department Mapping**: Sync organizational structure to DMS departments
+- **Document Management**: 
+  - Store employee records in DMS, link to Workday profiles
+  - Auto-file performance reviews, training certificates
+  - Time-off request documents
+- **Onboarding/Offboarding**: 
+  - Trigger document workflows when employees join/leave
+  - Auto-archive employee files on termination
+- **Compliance**: Link compliance training documents to Workday records
+
+### Department-Specific Integrations
+
+#### **Finance/Accounting Systems**
+- **Tyler Munis, Incode, SAP**: 
+  - Link invoices and purchase orders to financial systems
+  - Auto-populate vendor information
+  - Sync budget codes and cost centers
+  - Attach supporting documents to journal entries
+
+#### **Police/Public Safety**
+- **CAD Systems (Computer-Aided Dispatch)**: 
+  - Link incident reports to CAD incidents
+  - Auto-import incident data into report templates
+  - Attach photos, videos, evidence to incidents
+- **RMS (Records Management Systems)**: 
+  - Sync arrest records, case files
+  - Chain of custody tracking
+- **Body Camera Systems**: 
+  - Import video metadata and links
+  - Evidence tagging and retention
+
+#### **Public Works/GIS**
+- **ESRI ArcGIS**: 
+  - Link documents to map locations (permits, work orders)
+  - Display documents on interactive maps
+  - Spatial search (find all permits within radius)
+- **Asset Management Systems**: 
+  - Link maintenance documents to assets
+  - Track asset documentation history
+
+#### **Building/Permitting**
+- **Permit Software (Accela, CityView)**: 
+  - Import permit applications
+  - Attach plans, inspections, certifications
+  - Update permit status in both systems
+  - Online permit status lookup for public
+
+#### **Court/Legal**
+- **Case Management Systems**: 
+  - Link legal documents to cases
+  - Track litigation holds
+  - Docket document management
+
+### Generic Integration Types
+
+#### **Email Integration**
+- **Email to DMS**: Forward emails to special address to create documents
+- **Email Notifications**: Rich email notifications for workflows
+- **Document Links**: Share secure links to documents via email
+
+#### **Calendar Integration**
+- **Google Calendar / Outlook Calendar**: 
+  - Link documents to calendar events (agendas, meeting notes)
+  - Schedule document reviews and deadlines
+
+#### **E-Signature Platforms**
+- **DocuSign, Adobe Sign**: 
+  - Send documents for signature
+  - Import signed documents back to DMS
+  - Track signature status
+
+#### **Cloud Storage**
+- **Google Drive, Dropbox, Box**: 
+  - Import documents from cloud storage
+  - Hybrid storage options
+  - Backup to cloud
+
+#### **Business Intelligence Tools**
+- **Power BI, Tableau**: 
+  - Export DMS metrics and reports
+  - Visualize document usage, workflow performance
+  - Compliance dashboards
+
+#### **Workflow Automation**
+- **Zapier, Power Automate**: 
+  - Trigger external actions from DMS events
+  - Import data from other systems into DMS
+  - No-code integration options
+
+### Custom Integration Development
+
+**Integration SDK Features**:
+- RESTful API documentation
+- Sample integration code (C#, Python, JavaScript)
+- Authentication helpers (OAuth, API keys)
+- Webhook event catalog
+- Data mapping tools
+- Testing sandbox
+
+**Common Integration Patterns**:
+1. **Document Import**: Scheduled job to import from external system
+2. **User Sync**: Real-time or scheduled user/department synchronization
+3. **Workflow Triggers**: External system triggers DMS workflow
+4. **Event Notifications**: DMS notifies external system of events (via webhook)
+5. **Bidirectional Sync**: Keep documents in sync between systems
+
+### Integration Configuration (Config.exe)
+
+**Integration Manager UI**:
+```
+Available Integrations:
+├─ Microsoft 365               [Enabled] [Configure]
+│  ├─ SharePoint              ✓ Connected
+│  ├─ Outlook                 ✓ Connected
+│  ├─ Teams                   ○ Not Configured
+│  └─ Active Directory        ✓ Connected
+├─ Workday                     [Disabled] [Enable]
+├─ Finance (Tyler Munis)       [Enabled] [Configure]
+├─ CAD System                  [Enabled] [Configure]
+├─ DocuSign                    [Disabled] [Enable]
+└─ Custom Integrations         [Add New]
+```
+
+**Configuration Options**:
+- Connection settings (URLs, API keys, credentials)
+- Data field mapping (map DMS fields to external system fields)
+- Sync schedule (real-time, hourly, daily)
+- Conflict resolution rules
+- Enable/disable specific features
+- Test connection button
+
+### Security Considerations for Integrations
+
+- **Authentication**: OAuth 2.0, API keys, service accounts
+- **Encryption**: All data transfers encrypted (TLS)
+- **Audit Logging**: Log all integration activities
+- **Permissions**: Integration-specific permissions
+- **Data Validation**: Validate all incoming data
+- **Rate Limiting**: Prevent API abuse
+- **Sandboxing**: Test integrations in non-production environment
+
+### Integration Development Phases
+
+**Phase 1 (Post-MVP)**: Core integration framework + Microsoft 365
+**Phase 2**: Workday + E-Signature platforms
+**Phase 3**: Department-specific integrations (Finance, Police, Public Works)
+**Phase 4**: Custom integration SDK and documentation
 
 ---
 
@@ -767,6 +1264,6 @@ This project roadmap is provided as a planning document. Update license and supp
 
 ---
 
-**Document Version**: 1.0  
+**Document Version**: 1.1  
 **Last Updated**: January 24, 2026  
 **Status**: Planning Phase
