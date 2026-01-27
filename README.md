@@ -14,9 +14,9 @@
 
 ## Introduction
 
-A comprehensive document management system designed specifically for **government agencies and multi-departmental organizations** to handle document storage, retrieval, workflow automation, and form submissions. The system provides both desktop (EXE) and web interfaces with enterprise-grade security, departmental access controls, and compliance features.
+A comprehensive document management system designed specifically for **government agencies and multi-departmental organizations** to handle document storage, retrieval, workflow automation, and form submissions. The system provides both desktop (EXE) and web interfaces with enterprise-grade security, flexible user group-based access controls, and compliance features.
 
-**Primary Target Audience**: Local government agencies with multiple departments requiring secure document sharing and controlled access.
+**Primary Target Audience**: Local government agencies with multiple departments requiring secure document sharing and controlled access through flexible user groups.
 
 ### Core Capabilities
 - **Document Management**: Upload, version control, metadata, keyword tagging
@@ -84,21 +84,22 @@ A comprehensive document management system designed specifically for **governmen
 
 **Key Modules**:
 - **Setup Wizard**: First-time system configuration
-- **Department Management**: 
-  - Create and manage organizational departments
-  - Define department hierarchies
-  - Set default document retention by department
-  - Configure inter-departmental sharing rules
+- **User Group Management**: 
+  - Create and manage user groups (department-wide, cross-functional, project-based)
+  - Define group hierarchies and nested groups
+  - Manage group membership (add/remove users)
+  - Set group-level permissions and document access
+  - **Optional Department Tracking**: Tag users with department affiliation for reference (not for permissions)
 - **Document Type Management**: Define document categories and required metadata
 - **Keyword/Tag Administration**: Create and manage tag hierarchies
 - **User & Role Management**: 
-  - User accounts, roles, and permissions
-  - Department assignment and group membership
+  - User accounts, roles, and system permissions (Admin, Designer, User)
+  - User group assignments (multiple groups per user)
   - Active Directory/LDAP integration for government networks
 - **Access Control**: 
   - Configure document-level and keyword-based permissions
-  - Set departmental access rules
-  - Manage cross-department sharing policies
+  - Assign documents to user groups
+  - Manage group-based access policies
   - Public records designation rules
 - **Workflow Actions Library**: 
   - Create custom workflow actions (adhoc operations)
@@ -163,7 +164,12 @@ A comprehensive document management system designed specifically for **governmen
 - **Document Upload**: Drag-drop with OCR toggle option
 - **Document Viewer**: Preview with OCR text highlighting
 - **Version Control**: Check-in/check-out, version history
-- **Workflow Inbox**: Task management with approve/reject actions
+- **Workflow Inbox**: 
+  - Task management with approve/reject actions
+  - **Group-Based Queue Filtering**: Only see workflow tasks for groups you belong to
+  - Example: "Managers" group members only see tasks in "Manager Approval" queue
+  - Color-coded priorities and due dates
+  - Task counts per workflow state
 - **Notification Center**: Alerts and reminders
 - **User Dashboard**: Personalized view with recent documents and pending tasks
 - **Report Builder**:
@@ -209,7 +215,28 @@ A comprehensive document management system designed specifically for **governmen
 
 ---
 
-### 5. Web Interface - Browser-Based Access
+### 5. Diagnostics.exe - System Monitoring & Troubleshooting
+**Target Users**: IT support staff, system administrators, developers
+
+**Key Features**:
+- **Real-time Error Log Viewer**: Live error stream from all components with filtering
+- **Error Categorization**: Automatic grouping by type (database, file system, auth, OCR, workflow)
+- **System Health Dashboard**: Service status, resource utilization, active sessions
+- **Connection Testing Tools**: Test database, AD, file storage, Elasticsearch, email, integrations
+- **Performance Metrics**: API response times, database queries, OCR queue, search performance
+- **Bug/Issue Reporting**: Export detailed error context for support tickets
+
+**UX Features**:
+- Real-time dashboard with color-coded status (green/yellow/red)
+- Filter errors by severity, component, user, time range
+- Stack trace viewer with suggested solutions
+- One-click copy error details to clipboard
+- Export diagnostics reports (JSON/CSV)
+- Built-in help for common issues
+
+---
+
+### 6. Web Interface - Browser-Based Access
 **Target Users**: Remote users, mobile users, external stakeholders
 
 **Key Features**:
@@ -232,36 +259,63 @@ A comprehensive document management system designed specifically for **governmen
 
 ## Key Features
 
-### Departmental Access Control & User Groups
-- **Department Management**:
-  - Define organizational departments (Police, Fire, Public Works, Finance, HR, Legal, etc.)
-  - Hierarchical department structure (parent-child relationships)
-  - Cross-departmental teams and projects
-- **User Group Assignment**:
-  - Users assigned to one or more departments
-  - Primary department and secondary department access
-  - Temporary department access with expiration dates
-  - External user groups (contractors, consultants)
+### User Groups & Flexible Access Control
+**Core Principle**: Access is controlled by **user groups**, not rigid department boundaries. Groups can represent entire departments, cross-functional teams, specific projects, or any combination of users.
+
+- **User Group Management**:
+  - Create unlimited custom user groups (e.g., "Finance Team", "Budget Committee", "Contract Review Board", "Police Investigators")
+  - Groups can include users from multiple departments or be highly specific
+  - Nested groups: Groups can contain other groups for hierarchical access
+  - Dynamic membership: Add/remove users easily without restructuring
+  - **Department Awareness (Optional)**: Track which department users belong to for organizational reference, but permissions are group-based
+  
+- **Flexible Group Examples**:
+  - **Department-Wide**: "All Police Department" (everyone in one department)
+  - **Cross-Departmental**: "Budget Review Committee" (Finance + City Manager + Department Heads)
+  - **Project-Based**: "New City Hall Project" (Architects + Public Works + Finance + Legal)
+  - **Specialized Teams**: "Evidence Technicians" (subset of Police Department)
+  - **Executive**: "City Council" (elected officials across all departments)
+  - **External**: "Contractors - Building Inspection" (non-employees with limited access)
+
 - **Document Visibility Rules**:
-  - Default: Users only see documents from their departments
-  - Shared documents: Explicit sharing with other departments
-  - Public documents: Visible to all departments (e.g., policies)
-  - Confidential documents: Restricted to specific users within department
-- **Inter-Departmental Workflows**:
-  - Route documents between departments (e.g., budget approval: Finance → City Manager → Council)
-  - Department-based approval chains
-  - Automatic routing based on document type and department
-  - Handoff tracking and accountability
+  - Documents assigned to one or more user groups
+  - Users see only documents where they're in an assigned group
+  - **Public documents**: Special "Public" group (visible to all)
+  - **Confidential documents**: Assigned to very restricted groups
+  - **No default department access**: Explicit group assignment required
+  
+- **Group-Based Workflows**:
+  - Route documents between groups (e.g., "Finance Review" → "City Manager Approval" → "Council Vote")
+  - **Workflow Queue Visibility**: Each workflow state assigned to specific groups
+    - Example: "Manager Approval" state only visible to "Managers" group
+    - Users only see workflow tasks for groups they belong to
+    - Prevents queue clutter - users only see relevant tasks
+  - Workflows not tied to org chart, adaptable to any process
+  - Automatic routing based on document type and assigned groups
+  - Parallel approval: Multiple groups can approve simultaneously
+  - Sequential approval: Document moves through group queues in order
+  - Conditional routing: Route to different groups based on document metadata
+  - Handoff tracking and accountability per group
+  
 - **Sharing Controls**:
-  - Request access to documents from other departments
-  - Approval workflow for cross-department access
-  - Time-limited access grants
-  - Share logs and audit trail
+  - Share documents with additional groups (temporary or permanent)
+  - Request access: Users can request to join a group
+  - Approval workflow for group membership requests
+  - Time-limited group membership with expiration dates
+  - Complete share and access audit trail
+  
 - **Public Records Management**:
-  - Mark documents as "Public Record" for FOIA requests
+  - Assign documents to "Public Records" group for FOIA requests
   - Separate public portal for accessing public documents
   - Redaction workflow before public release
   - Track public records requests and responses
+
+**Benefits of Group-Based Model**:
+- **Flexibility**: Adapt to any organizational structure
+- **Granularity**: Control access at any level (broad or narrow)
+- **Reorganization-Proof**: Org changes don't break permissions
+- **Project Support**: Temporary teams get access without system changes
+- **External Collaboration**: Easy to grant contractors/consultants specific access
 
 ### Document Management
 - **Upload & Storage**: Multi-file upload, drag-drop, chunked uploads for large files
@@ -436,9 +490,14 @@ A comprehensive document management system designed specifically for **governmen
 
 ### Typical Department Scenarios
 
-#### **Police Department**
+#### **Police Department (User Group Examples)**
 - **Documents**: Incident reports, arrest records, evidence logs, body camera footage metadata
-- **Access**: Restricted to police personnel; shared with legal for prosecution
+- **User Groups**: 
+  - "Police - All Personnel" (department-wide access)
+  - "Police - Detectives" (subset for sensitive investigations)
+  - "Evidence Technicians" (evidence logs only)
+  - "Case Review Board" (Police + Legal + City Attorney)
+- **Access**: Group-based; e.g., "Police - Detectives" sees investigations, shared with "Legal Team" for prosecution
 - **Workflows**: Evidence chain of custody, case file approval, records release (FOIA)
 - **Retention**: Varies by record type (7 years to permanent)
 
@@ -478,14 +537,21 @@ A comprehensive document management system designed specifically for **governmen
 ```
 Department Head (Any Dept) → Submit Budget Request
   ↓
-Finance Dept → Review & Analyze
+"Finance Analysts" Group → Review & Analyze
+  (Only Finance Analysts see this in their queue)
   ↓
-City Manager → Approve/Modify
+"Finance Director" Group → Approve/Modify
+  (Only Finance Director sees this task)
   ↓
-City Council → Final Approval
+"City Manager" Group → Approve/Modify
+  (Only City Manager sees this task)
   ↓
-Finance Dept → Execute Budget
+"City Council" Group → Final Approval
+  (All Council members see this in their shared queue)
+  ↓
+"Finance Department" Group → Execute Budget
 ```
+*Each workflow state is a queue visible only to the assigned group*
 
 **Example 2: Public Records Request (FOIA)**
 ```
@@ -523,18 +589,24 @@ Inspections Dept → Schedule Inspections
 ```
 Department → Initiate Contract Request
   ↓
-Procurement → Verify Compliance
+"Procurement Team" Group → Verify Compliance
+  (Only procurement staff see this queue)
   ↓
-Legal → Review Contract Terms
+"Legal Review" Group → Review Contract Terms
+  (Only legal team sees this queue)
   ↓
-Finance → Verify Budget Availability
+"Finance - Budget Managers" Group → Verify Budget Availability
+  (Only budget managers see this - subset of Finance)
   ↓
-Department Head → Approve
+"Department Heads" Group → Approve
+  (All department heads see contracts requiring their approval)
   ↓
-City Manager → Sign (if over threshold)
+"City Manager" Group → Sign (if over threshold)
+  (Only City Manager sees high-value contracts)
   ↓
-City Clerk → File Executed Contract
+"City Clerk" Group → File Executed Contract
 ```
+*Notice: "Finance - Budget Managers" is a subset group, not all Finance employees*
 
 ### Compliance Requirements for Government
 
