@@ -1,12 +1,13 @@
 # Database Schema Design
 **Document Management System**
 
-**Version**: 0.3 (Phase 1 Draft)  
-**Status**: Design Phase - Ready for Final Review  
+**Version**: 0.4 (Phase 1 Draft)  
+**Status**: Design Phase - Complete and ready for implementation  
 **Last Updated**: January 26, 2026
 
 **Change Log**:
-- v0.3 (Jan 26): Added DocumentTypeGroups, DocumentTypes, DocumentTypeKeywords tables; finalized auto-numbering, file storage, audit retention, and access inheritance; resolved 7 major design questions
+- v0.4 (Jan 26): Redesigned index field system - Keywords → IndexFields with structured field/value storage for searchable data (FIRST NAME = 'Bob', SSN = '123456798')
+- v0.3 (Jan 26): Added DocumentTypeGroups, DocumentTypes, DocumentTypeIndexFields tables; finalized auto-numbering, file storage, audit retention, and access inheritance; resolved 9 major design questions
 - v0.2 (Jan 25): Simplified to UserGroups-only model (removed Roles/Departments); split into Phase 1 (17 tables) vs Phase 2 (deferred)
 - v0.1 (Jan 24): Initial schema draft with 33 tables
 
@@ -51,10 +52,11 @@ This document defines the database schema for the Document Management System, de
 - Third-party integrations
 
 **Database**: SQL Server 2022 (primary) / PostgreSQL 15+ (alternative)  
-**Phase 1 Core Tables**: 17 + 11 audit tables = **28 total**
+**Phase 1 Core Tables**: 16 + 11 audit tables = **27 total**
 
 **Key Design Decisions**:
 - ✅ UserGroups-only model (no separate Roles or Departments)
+- ✅ Index fields with structured values (FIRST NAME = 'Bob', searchable per field)
 - ✅ Auto-numbering per document type (e.g., IR-2026-00001)
 - ✅ File storage: GUID-based keys, human-readable document numbers
 - ✅ Audit retention: Configurable per table type with automatic cleanup
@@ -554,27 +556,32 @@ CREATE INDEX IX_DG_Document ON DocumentGroups(DocumentId) WHERE RevokedDate IS N
 CREATE INDEX IX_DG_Group ON DocumentGroups(GroupId) WHERE RevokedDate IS NULL;
 ```
 
-### 10. Keywords
-Hierarchical keyword/tag system
+### 10. IndexFields
+Index field definitions for document indexing (e.g., FIRST NAME, LAST NAME, SSN)
 
 ```sql
-CREATE TABLE Keywords (
-    KeywordId INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE IndexFields (
+    IndexFieldId INT IDENTITY(1,1) PRIMARY KEY,
     
-    KeywordName NVARCHAR(100) NOT NULL,
+    FieldName NVARCHAR(100) NOT NULL,  -- 'FIRST NAME', 'LAST NAME', 'SSN', etc.
     Description NVARCHAR(500) NULL,
     
-    -- Hierarchy
-    ParentKeywordId INT NULL,  -- Nested keywords
-    Level INT NOT NULL DEFAULT 0,  -- Tree depth
+    -- Data Type & Validation
+    FieldType NVARCHAR(50) NOT NULL DEFAULT 'Text',  -- 'Text', 'Number', 'Date', 'Boolean', 'Dropdown'
+    MaxLength INT NULL,  -- For text fields
+    ValidationRegex NVARCHAR(500) NULL,  -- e.g., SSN pattern
+    DropdownOptions NVARCHAR(MAX) NULL,  -- JSON array for dropdown choices
+    
+    -- Hierarchy (optional grouping)
+    ParentFieldId INT NULL,  -- Group related fields
+    Level INT NOT NULL DEFAULT 0,
     
     -- Access Control
-    IsRestricted BIT NOT NULL DEFAULT 0,  -- If true, only certain groups can use
+    IsSensitive BIT NOT NULL DEFAULT 0,  -- PII/PHI flag - requires Search.ViewPII permission to view
     
     -- Display
-    Color NVARCHAR(7) NULL,  -- Hex color for UI
-    Icon NVARCHAR(50) NULL,
     DisplayOrder INT NOT NULL DEFAULT 0,
+    IsSearchable BIT NOT NULL DEFAULT 1,  -- Can users search by this field?
     
     -- Status
     IsActive BIT NOT NULL DEFAULT 1,
@@ -586,54 +593,69 @@ CREATE TABLE Keywords (
     ModifiedBy UNIQUEIDENTIFIER NULL,
     DeletedDate DATETIME2 NULL,
     
-    CONSTRAINT FK_Keywords_Parent FOREIGN KEY (ParentKeywordId) 
-        REFERENCES Keywords(KeywordId),
-    CONSTRAINT UQ_Keywords UNIQUE (KeywordName, ParentKeywordId, DeletedDate)
+    CONSTRAINT FK_IndexFields_Parent FOREIGN KEY (ParentFieldId) 
+        REFERENCES IndexFields(IndexFieldId),
+    CONSTRAINT UQ_IndexFields UNIQUE (FieldName, DeletedDate)
 );
 
-CREATE INDEX IX_Keywords_Parent ON Keywords(ParentKeywordId) WHERE DeletedDate IS NULL;
+CREATE INDEX IX_IndexFields_Parent ON IndexFields(ParentFieldId) WHERE DeletedDate IS NULL;
+CREATE INDEX IX_IndexFields_Active ON IndexFields(IsActive) WHERE DeletedDate IS NULL;
 ```
 
-### 11. DocumentKeywords
-Many-to-many: Documents ↔ Keywords
+### 11. DocumentIndexData
+Actual index field values for each document (e.g., FIRST NAME = 'Bob', SSN = '123456798')
 
 ```sql
-CREATE TABLE DocumentKeywords (
-    DocumentKeywordId INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE DocumentIndexData (
+    DocumentIndexDataId BIGINT IDENTITY(1,1) PRIMARY KEY,
     
     DocumentId UNIQUEIDENTIFIER NOT NULL,
-    KeywordId INT NOT NULL,
+    IndexFieldId INT NOT NULL,
+    
+    -- The Actual Value
+    FieldValue NVARCHAR(4000) NOT NULL,  -- 'Bob', 'Smith', '123456798', '2024-01-15', etc.
     
     -- Audit
     AddedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     AddedBy UNIQUEIDENTIFIER NOT NULL,
+    ModifiedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    ModifiedBy UNIQUEIDENTIFIER NOT NULL,
     RemovedDate DATETIME2 NULL,
     
-    CONSTRAINT FK_DK_Document FOREIGN KEY (DocumentId) 
+    CONSTRAINT FK_DID_Document FOREIGN KEY (DocumentId) 
         REFERENCES Documents(DocumentId),
-    CONSTRAINT FK_DK_Keyword FOREIGN KEY (KeywordId) 
-        REFERENCES Keywords(KeywordId),
-    CONSTRAINT FK_DK_AddedBy FOREIGN KEY (AddedBy) 
+    CONSTRAINT FK_DID_IndexField FOREIGN KEY (IndexFieldId) 
+        REFERENCES IndexFields(IndexFieldId),
+    CONSTRAINT FK_DID_AddedBy FOREIGN KEY (AddedBy) 
         REFERENCES Users(UserId),
-    CONSTRAINT UQ_DocumentKeywords UNIQUE (DocumentId, KeywordId, RemovedDate)
+    CONSTRAINT UQ_DocumentIndexData UNIQUE (DocumentId, IndexFieldId, RemovedDate)
 );
 
-CREATE INDEX IX_DK_Document ON DocumentKeywords(DocumentId) WHERE RemovedDate IS NULL;
-CREATE INDEX IX_DK_Keyword ON DocumentKeywords(KeywordId) WHERE RemovedDate IS NULL;
+CREATE INDEX IX_DID_Document ON DocumentIndexData(DocumentId) WHERE RemovedDate IS NULL;
+CREATE INDEX IX_DID_Field ON DocumentIndexData(IndexFieldId) WHERE RemovedDate IS NULL;
+-- CRITICAL: Index for searching by field value
+CREATE INDEX IX_DID_FieldValue ON DocumentIndexData(IndexFieldId, FieldValue) 
+    WHERE RemovedDate IS NULL;
+
+-- Full-Text Search for wildcard/partial matching on FieldValue
+CREATE FULLTEXT INDEX ON DocumentIndexData(FieldValue)
+    KEY INDEX PK_DocumentIndexData
+    ON DocumentCatalog
+    WITH STOPLIST = SYSTEM;
 ```
 
-### 12. DocumentTypeKeywords
-Defines which keywords are required/optional for each document type
+### 12. DocumentTypeIndexFields
+Defines which index fields are required/optional for each document type
 
 ```sql
-CREATE TABLE DocumentTypeKeywords (
-    DocumentTypeKeywordId INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE DocumentTypeIndexFields (
+    DocumentTypeIndexFieldId INT IDENTITY(1,1) PRIMARY KEY,
     
     DocumentTypeId INT NOT NULL,
-    KeywordId INT NOT NULL,
+    IndexFieldId INT NOT NULL,
     
     -- Requirement
-    IsRequired BIT NOT NULL DEFAULT 0,  -- TRUE = must be applied, FALSE = optional
+    IsRequired BIT NOT NULL DEFAULT 0,  -- TRUE = must be filled, FALSE = optional
     
     -- Display
     DisplayOrder INT NOT NULL DEFAULT 0,
@@ -643,17 +665,17 @@ CREATE TABLE DocumentTypeKeywords (
     CreatedBy UNIQUEIDENTIFIER NOT NULL,
     RemovedDate DATETIME2 NULL,
     
-    CONSTRAINT FK_DTK_DocumentType FOREIGN KEY (DocumentTypeId) 
+    CONSTRAINT FK_DTIF_DocumentType FOREIGN KEY (DocumentTypeId) 
         REFERENCES DocumentTypes(DocumentTypeId),
-    CONSTRAINT FK_DTK_Keyword FOREIGN KEY (KeywordId) 
-        REFERENCES Keywords(KeywordId),
-    CONSTRAINT FK_DTK_Creator FOREIGN KEY (CreatedBy) 
+    CONSTRAINT FK_DTIF_IndexField FOREIGN KEY (IndexFieldId) 
+        REFERENCES IndexFields(IndexFieldId),
+    CONSTRAINT FK_DTIF_Creator FOREIGN KEY (CreatedBy) 
         REFERENCES Users(UserId),
-    CONSTRAINT UQ_DocumentTypeKeywords UNIQUE (DocumentTypeId, KeywordId, RemovedDate)
+    CONSTRAINT UQ_DocumentTypeIndexFields UNIQUE (DocumentTypeId, IndexFieldId, RemovedDate)
 );
 
-CREATE INDEX IX_DTK_DocumentType ON DocumentTypeKeywords(DocumentTypeId) WHERE RemovedDate IS NULL;
-CREATE INDEX IX_DTK_Keyword ON DocumentTypeKeywords(KeywordId) WHERE RemovedDate IS NULL;
+CREATE INDEX IX_DTIF_DocumentType ON DocumentTypeIndexFields(DocumentTypeId) WHERE RemovedDate IS NULL;
+CREATE INDEX IX_DTIF_IndexField ON DocumentTypeIndexFields(IndexFieldId) WHERE RemovedDate IS NULL;
 ```
 
 ---
@@ -819,7 +841,58 @@ CREATE INDEX IX_N_User ON Notifications(UserId, IsRead, CreatedDate DESC);
 CREATE INDEX IX_N_Expiration ON Notifications(ExpirationDate) WHERE ExpirationDate IS NOT NULL;
 ```
 
-### 31. HelpContent
+### 31. EmailQueue
+Email sending queue for notifications and system emails
+
+```sql
+CREATE TABLE EmailQueue (
+    EmailQueueId BIGINT IDENTITY(1,1) PRIMARY KEY,
+    
+    -- Recipient
+    ToEmail NVARCHAR(255) NOT NULL,
+    ToUserId UNIQUEIDENTIFIER NULL,  -- FK to Users if internal user
+    
+    -- Email Content
+    Subject NVARCHAR(500) NOT NULL,
+    Body NVARCHAR(MAX) NOT NULL,
+    IsHtml BIT NOT NULL DEFAULT 1,
+    
+    -- Optional
+    CcEmails NVARCHAR(MAX) NULL,  -- Comma-separated
+    BccEmails NVARCHAR(MAX) NULL,
+    Attachments NVARCHAR(MAX) NULL,  -- JSON array of file paths
+    
+    -- Sending
+    Status NVARCHAR(50) NOT NULL DEFAULT 'Pending',  -- 'Pending', 'Sent', 'Failed'
+    Priority INT NOT NULL DEFAULT 5,  -- 1-10, higher = more urgent
+    ScheduledSendDate DATETIME2 NULL,  -- For delayed sending
+    
+    -- Results
+    SentDate DATETIME2 NULL,
+    ErrorMessage NVARCHAR(MAX) NULL,
+    RetryCount INT NOT NULL DEFAULT 0,
+    MaxRetries INT NOT NULL DEFAULT 3,
+    
+    -- Context
+    RelatedNotificationId UNIQUEIDENTIFIER NULL,  -- FK to Notifications
+    RelatedEntityType NVARCHAR(50) NULL,  -- 'Document', 'Workflow', etc.
+    RelatedEntityId NVARCHAR(50) NULL,
+    
+    -- Audit
+    QueuedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    
+    CONSTRAINT FK_EQ_Notification FOREIGN KEY (RelatedNotificationId) 
+        REFERENCES Notifications(NotificationId),
+    CONSTRAINT FK_EQ_User FOREIGN KEY (ToUserId) 
+        REFERENCES Users(UserId)
+);
+
+CREATE INDEX IX_EQ_Status ON EmailQueue(Status, Priority DESC, QueuedDate);
+CREATE INDEX IX_EQ_User ON EmailQueue(ToUserId) WHERE ToUserId IS NOT NULL;
+CREATE INDEX IX_EQ_Scheduled ON EmailQueue(ScheduledSendDate) WHERE ScheduledSendDate IS NOT NULL;
+```
+
+### 32. HelpContent
 Contextual help system
 
 ```sql
@@ -852,46 +925,7 @@ CREATE INDEX IX_HC_Category ON HelpContent(Category) WHERE IsActive = 1;
 CREATE INDEX IX_HC_Key ON HelpContent(HelpKey);
 ```
 
-### 16. AuditLogs
-Comprehensive audit trail (compliance requirement)
-
-```sql
-CREATE TABLE AuditLogs (
-    AuditId BIGINT IDENTITY(1,1) PRIMARY KEY,
-    
-    -- Event Info
-    EventType NVARCHAR(50) NOT NULL,  -- 'Create', 'Update', 'Delete', 'View', 'Download', etc.
-    EntityType NVARCHAR(50) NOT NULL,  -- 'Document', 'User', 'Group', 'Keyword', etc.
-    EntityId NVARCHAR(50) NOT NULL,
-    
-    -- Action Details
-    Action NVARCHAR(100) NOT NULL,  -- Detailed action description
-    OldValues NVARCHAR(MAX) NULL,  -- JSON: before state
-    NewValues NVARCHAR(MAX) NULL,  -- JSON: after state
-    
-    -- User & Context
-    UserId UNIQUEIDENTIFIER NULL,
-    Username NVARCHAR(100) NULL,
-    IpAddress NVARCHAR(45) NULL,
-    UserAgent NVARCHAR(500) NULL,
-    
-    -- Timing
-    EventDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    
-    -- Result
-    Success BIT NOT NULL DEFAULT 1,
-    ErrorMessage NVARCHAR(MAX) NULL,
-    
-    CONSTRAINT FK_AL_User FOREIGN KEY (UserId) REFERENCES Users(UserId)
-);
-
-CREATE INDEX IX_AL_EventDate ON AuditLogs(EventDate DESC);
-CREATE INDEX IX_AL_EntityType ON AuditLogs(EntityType, EntityId, EventDate DESC);
-CREATE INDEX IX_AL_User ON AuditLogs(UserId, EventDate DESC);
-CREATE INDEX IX_AL_EventType ON AuditLogs(EventType, EventDate DESC);
-```
-
-### 17. DocumentMetadataFields (Optional - Advanced)
+### 16. DocumentMetadataFields (Optional - Advanced)
 Custom metadata fields for documents (if needed beyond keywords)
 
 ```sql
@@ -985,12 +1019,14 @@ CREATE INDEX IX_GroupPerms ON GroupPermissions(GroupId, PermissionId)
     WHERE RevokedDate IS NULL;
 
 -- Document search with access control
-CREATE INDEX IX_DocumentSearch ON Documents(Status, DocumentType, CreatedDate DESC)
+CREATE INDEX IX_DocumentSearch ON Documents(Status, DocumentTypeId, CreatedDate DESC)
     INCLUDE (Title, FileName, CreatedBy)
     WHERE DeletedDate IS NULL;
 
--- Keyword-based document filtering
-CREATE INDEX IX_KeywordDocs ON DocumentKeywords(KeywordId, DocumentId)
+-- Index field-based document search (CRITICAL for performance)
+-- Enables: Search by FIRST NAME = 'Joe', SSN = '123456798', etc.
+CREATE INDEX IX_IndexFieldSearch ON DocumentIndexData(IndexFieldId, FieldValue)
+    INCLUDE (DocumentId)
     WHERE RemovedDate IS NULL;
 ```
 
@@ -998,16 +1034,21 @@ CREATE INDEX IX_KeywordDocs ON DocumentKeywords(KeywordId, DocumentId)
 
 ```sql
 -- SQL Server Full-Text Index (if using SQL Server instead of Elasticsearch)
-CREATE FULLTEXT CATALOG DMSFullTextCatalog AS DEFAULT;
+CREATE FULLTEXT CATALOG DocumentCatalog AS DEFAULT;
 
 CREATE FULLTEXT INDEX ON Documents(Title, Description, OcrText)
     KEY INDEX PK_Documents
-    ON DMSFullTextCatalog
+    ON DocumentCatalog
     WITH CHANGE_TRACKING AUTO;
 
-CREATE FULLTEXT INDEX ON Keywords(KeywordName, Description)
-    KEY INDEX PK_Keywords
-    ON DMSFullTextCatalog
+CREATE FULLTEXT INDEX ON IndexFields(FieldName, Description)
+    KEY INDEX PK_IndexFields
+    ON DocumentCatalog
+    WITH CHANGE_TRACKING AUTO;
+
+CREATE FULLTEXT INDEX ON DocumentIndexData(FieldValue)
+    KEY INDEX PK_DocumentIndexData
+    ON DocumentCatalog
     WITH CHANGE_TRACKING AUTO;
 ```
 
@@ -1086,9 +1127,9 @@ WHERE DocumentId = '...';
    - Cache entire SystemSettings table
    - Invalidate on settings update
 
-4. **Keywords Hierarchy** (in-memory cache, 1-hour TTL)
-   - Cache keyword tree structure
-   - Invalidate when keywords modified
+4. **Index Field Definitions** (in-memory cache, 1-hour TTL)
+   - Cache index field definitions and their validation rules
+   - Invalidate when fields are modified
 
 5. **Document Metadata** (Redis for distributed, 10-min TTL)
    - Cache frequently accessed document records
@@ -1100,6 +1141,291 @@ WHERE DocumentId = '...';
 
 ## Implementation Notes & Configuration
 
+### Initial System Setup
+
+**Default System Admin User:**
+
+Create a fixed system admin user for initial setup and system operations. This user should never be deleted.
+
+```sql
+-- Create the default system administrator (fixed GUID)
+-- Use this GUID for all system operations: '00000000-0000-0000-0000-000000000001'
+DECLARE @SystemAdminId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+INSERT INTO Users (
+    UserId, 
+    Username, 
+    Email, 
+    FirstName, 
+    LastName, 
+    DisplayName,
+    IsActive,
+    IsSystemAdmin,
+    CreatedDate,
+    CreatedBy,
+    ModifiedDate,
+    ModifiedBy
+)
+VALUES (
+    @SystemAdminId,
+    'system.admin',
+    'admin@youragency.gov',
+    'System',
+    'Administrator',
+    'System Administrator',
+    1,  -- IsActive
+    1,  -- IsSystemAdmin
+    GETUTCDATE(),
+    @SystemAdminId,  -- Self-created
+    GETUTCDATE(),
+    @SystemAdminId
+);
+
+-- Create System Administrators group
+DECLARE @SystemAdminGroupId UNIQUEIDENTIFIER = NEWID();
+
+INSERT INTO UserGroups (GroupId, GroupName, Description, IsSystemGroup, CreatedBy, ModifiedBy)
+VALUES (
+    @SystemAdminGroupId,
+    'System Administrators',
+    'Full system access - cannot be deleted',
+    1,  -- IsSystemGroup
+    @SystemAdminId,
+    @SystemAdminId
+);
+
+-- Add system admin to the group
+INSERT INTO UserGroupMembers (GroupId, UserId, IsPrimaryGroup, AddedBy)
+VALUES (@SystemAdminGroupId, @SystemAdminId, 1, @SystemAdminId);
+```
+
+**Note**: Use this fixed GUID `'00000000-0000-0000-0000-000000000001'` for all subsequent setup scripts where a `CreatedBy` or `ModifiedBy` user is required.
+
+---
+
+### Core Permissions Setup
+
+**Create all application permissions** organized by category:
+
+```sql
+-- Use the system admin GUID
+DECLARE @SystemAdminId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+-- Document Permissions
+INSERT INTO Permissions (PermissionKey, PermissionName, Description, Category, PermissionLevel, IsActive)
+VALUES 
+    -- Document Management
+    ('Document.View', 'View Documents', 'Can view documents user has access to', 'Documents', 'Read', 1),
+    ('Document.Create', 'Create Documents', 'Can upload new documents', 'Documents', 'Write', 1),
+    ('Document.Edit', 'Edit Documents', 'Can modify document metadata', 'Documents', 'Write', 1),
+    ('Document.Delete', 'Delete Documents', 'Can soft-delete documents', 'Documents', 'Delete', 1),
+    ('Document.Download', 'Download Documents', 'Can download document files', 'Documents', 'Read', 1),
+    ('Document.Version', 'Manage Versions', 'Can upload new versions of documents', 'Documents', 'Write', 1),
+    ('Document.Restore', 'Restore Documents', 'Can restore soft-deleted documents', 'Documents', 'Admin', 1),
+    
+    -- Document Type Management
+    ('DocumentType.View', 'View Document Types', 'Can view document type configurations', 'Documents', 'Read', 1),
+    ('DocumentType.Create', 'Create Document Types', 'Can create new document types', 'Documents', 'Admin', 1),
+    ('DocumentType.Edit', 'Edit Document Types', 'Can modify document type settings', 'Documents', 'Admin', 1),
+    ('DocumentType.Delete', 'Delete Document Types', 'Can delete document types', 'Documents', 'Admin', 1),
+    
+    -- Index Field Management
+    ('IndexField.View', 'View Index Fields', 'Can view index field definitions', 'Documents', 'Read', 1),
+    ('IndexField.Create', 'Create Index Fields', 'Can create new index fields', 'Documents', 'Admin', 1),
+    ('IndexField.Edit', 'Edit Index Fields', 'Can modify index field settings', 'Documents', 'Admin', 1),
+    ('IndexField.Delete', 'Delete Index Fields', 'Can delete index fields', 'Documents', 'Admin', 1),
+    
+    -- Search & Access
+    ('Search.Basic', 'Basic Search', 'Can search documents by title and metadata', 'Documents', 'Read', 1),
+    ('Search.Advanced', 'Advanced Search', 'Can use full-text search and complex queries', 'Documents', 'Read', 1),
+    ('Search.ViewPII', 'View PII Fields', 'Can view sensitive/PII index fields (SSN, etc.)', 'Documents', 'Read', 1),
+    
+    -- User Management
+    ('Admin.Users.View', 'View Users', 'Can view user list and details', 'Admin', 'Read', 1),
+    ('Admin.Users.Create', 'Create Users', 'Can create new user accounts', 'Admin', 'Write', 1),
+    ('Admin.Users.Edit', 'Edit Users', 'Can modify user accounts', 'Admin', 'Write', 1),
+    ('Admin.Users.Delete', 'Delete Users', 'Can soft-delete user accounts', 'Admin', 'Delete', 1),
+    ('Admin.Users.ResetPassword', 'Reset Passwords', 'Can reset user passwords', 'Admin', 'Admin', 1),
+    
+    -- Group Management
+    ('Admin.Groups.View', 'View Groups', 'Can view user groups', 'Admin', 'Read', 1),
+    ('Admin.Groups.Create', 'Create Groups', 'Can create new user groups', 'Admin', 'Write', 1),
+    ('Admin.Groups.Edit', 'Edit Groups', 'Can modify group settings', 'Admin', 'Write', 1),
+    ('Admin.Groups.Delete', 'Delete Groups', 'Can delete user groups', 'Admin', 'Delete', 1),
+    ('Admin.Groups.ManageMembers', 'Manage Group Members', 'Can add/remove users from groups', 'Admin', 'Write', 1),
+    ('Admin.Groups.ManagePermissions', 'Manage Group Permissions', 'Can grant/revoke group permissions', 'Admin', 'Admin', 1),
+    
+    -- System Administration
+    ('Admin.System.View', 'View System Settings', 'Can view system configuration', 'Admin', 'Read', 1),
+    ('Admin.System.Configure', 'Configure System', 'Can modify system settings', 'Admin', 'Admin', 1),
+    ('Admin.System.ViewAuditLogs', 'View Audit Logs', 'Can view audit trail', 'Admin', 'Read', 1),
+    ('Admin.System.ManageRetention', 'Manage Retention', 'Can configure audit log retention', 'Admin', 'Admin', 1),
+    
+    -- OCR Management
+    ('OCR.View', 'View OCR Queue', 'Can view OCR processing queue', 'System', 'Read', 1),
+    ('OCR.Manage', 'Manage OCR', 'Can reprocess failed OCR jobs', 'System', 'Admin', 1),
+    
+    -- Notification Management
+    ('Notification.Send', 'Send Notifications', 'Can send notifications to users', 'System', 'Write', 1),
+    ('Notification.Manage', 'Manage Notifications', 'Can manage system notifications', 'System', 'Admin', 1),
+    
+    -- Email Management
+    ('Email.Send', 'Send Emails', 'Can send emails via queue', 'System', 'Write', 1),
+    ('Email.ViewQueue', 'View Email Queue', 'Can view email sending queue', 'System', 'Read', 1),
+    ('Email.ManageQueue', 'Manage Email Queue', 'Can retry/cancel queued emails', 'System', 'Admin', 1),
+    
+    -- Reporting (Future Phase 2)
+    ('Report.View', 'View Reports', 'Can view existing reports', 'Reports', 'Read', 1),
+    ('Report.Create', 'Create Reports', 'Can create custom reports', 'Reports', 'Write', 1),
+    ('Report.Schedule', 'Schedule Reports', 'Can schedule automated reports', 'Reports', 'Admin', 1),
+    
+    -- Help Content Management
+    ('Help.View', 'View Help', 'Can view help content', 'System', 'Read', 1),
+    ('Help.Manage', 'Manage Help', 'Can create/edit help content', 'System', 'Admin', 1);
+
+-- Grant all permissions to System Administrators group
+DECLARE @SystemAdminGroupId UNIQUEIDENTIFIER;
+
+SELECT @SystemAdminGroupId = GroupId 
+FROM UserGroups 
+WHERE GroupName = 'System Administrators';
+
+INSERT INTO GroupPermissions (GroupId, PermissionId, GrantedBy)
+SELECT @SystemAdminGroupId, PermissionId, @SystemAdminId
+FROM Permissions
+WHERE IsActive = 1;
+```
+
+**Permission Categories:**
+- **Documents**: Document and document type management
+- **Admin**: User, group, and system administration
+- **System**: OCR, notifications, email, and system operations
+- **Reports**: Reporting functionality (Phase 2)
+
+---
+
+### Index Field System
+
+**How It Works**:
+Admin creates index field definitions in Config.exe, then users fill in values during document upload.
+
+**Example Setup**:
+```sql
+-- Use the system admin GUID created during initial setup
+DECLARE @AdminUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+-- Admin creates index fields
+INSERT INTO IndexFields (FieldName, FieldType, IsSearchable, IsSensitive, CreatedBy)
+VALUES 
+    ('FIRST NAME', 'Text', 1, 0, @AdminUserId),
+    ('LAST NAME', 'Text', 1, 0, @AdminUserId),
+    ('SSN', 'Text', 1, 1, @AdminUserId),  -- IsSensitive = PII
+    ('DATE OF BIRTH', 'Date', 1, 1, @AdminUserId);
+
+-- Admin configures which fields are required for "Legal Residence Form"
+-- DocumentTypeId = 1, assumes IndexFieldIds 1-4 from above inserts
+INSERT INTO DocumentTypeIndexFields (DocumentTypeId, IndexFieldId, IsRequired, DisplayOrder, CreatedBy)
+VALUES 
+    (1, 1, 1, 1, @AdminUserId),  -- FIRST NAME required
+    (1, 2, 1, 2, @AdminUserId),  -- LAST NAME required
+    (1, 3, 1, 3, @AdminUserId),  -- SSN required
+    (1, 4, 0, 4, @AdminUserId);  -- DATE OF BIRTH optional
+```
+
+**User Imports Documents**:
+```sql
+-- Form 1: User uploads document and enters index field values
+INSERT INTO Documents (DocumentId, DocumentTypeId, Title, ...)
+VALUES ('{guid-form1}', 1, 'Legal Residence - Bob Smith', ...);
+
+INSERT INTO DocumentIndexData (DocumentId, IndexFieldId, FieldValue, AddedBy)
+VALUES 
+    ('{guid-form1}', 1, 'Bob', '{user-guid}'),     -- FIRST NAME = Bob
+    ('{guid-form1}', 2, 'Smith', '{user-guid}'),   -- LAST NAME = Smith
+    ('{guid-form1}', 3, '123456798', '{user-guid}'); -- SSN = 123456798
+
+-- Form 2:
+INSERT INTO Documents (DocumentId, DocumentTypeId, Title, ...)
+VALUES ('{guid-form2}', 1, 'Legal Residence - Joe Smith', ...);
+
+INSERT INTO DocumentIndexData (DocumentId, IndexFieldId, FieldValue, AddedBy)
+VALUES 
+    ('{guid-form2}', 1, 'Joe', '{user-guid}'),
+    ('{guid-form2}', 2, 'Smith', '{user-guid}'),
+    ('{guid-form2}', 3, '987654321', '{user-guid}');
+
+-- Form 3:
+INSERT INTO Documents (DocumentId, DocumentTypeId, Title, ...)
+VALUES ('{guid-form3}', 1, 'Legal Residence - Joe Smith', ...);
+
+INSERT INTO DocumentIndexData (DocumentId, IndexFieldId, FieldValue, AddedBy)
+VALUES 
+    ('{guid-form3}', 1, 'Joe', '{user-guid}'),
+    ('{guid-form3}', 2, 'Smith', '{user-guid}'),
+    ('{guid-form3}', 3, '987651234', '{user-guid}');
+```
+
+**User Searches**:
+```sql
+-- Search: Document Type = Legal Residence Form, FIRST NAME = 'Joe'
+-- Returns: Form 2, Form 3
+SELECT DISTINCT d.*
+FROM Documents d
+INNER JOIN DocumentIndexData did ON d.DocumentId = did.DocumentId
+INNER JOIN IndexFields if ON did.IndexFieldId = if.IndexFieldId
+WHERE d.DocumentTypeId = 1
+  AND if.FieldName = 'FIRST NAME'
+  AND did.FieldValue = 'Joe'
+  AND d.DeletedDate IS NULL
+  AND did.RemovedDate IS NULL;
+
+-- Search: Document Type = Legal Residence Form, LAST NAME = 'Smith'
+-- Returns: Form 1, Form 2, Form 3
+SELECT DISTINCT d.*
+FROM Documents d
+INNER JOIN DocumentIndexData did ON d.DocumentId = did.DocumentId
+INNER JOIN IndexFields if ON did.IndexFieldId = if.IndexFieldId
+WHERE d.DocumentTypeId = 1
+  AND if.FieldName = 'LAST NAME'
+  AND did.FieldValue = 'Smith'
+  AND d.DeletedDate IS NULL
+  AND did.RemovedDate IS NULL;
+
+-- Search: Document Type = Legal Residence Form, SSN = '987651234'
+-- Returns: Form 3 only
+SELECT DISTINCT d.*
+FROM Documents d
+INNER JOIN DocumentIndexData did ON d.DocumentId = did.DocumentId
+INNER JOIN IndexFields if ON did.IndexFieldId = if.IndexFieldId
+WHERE d.DocumentTypeId = 1
+  AND if.FieldName = 'SSN'
+  AND did.FieldValue = '987651234'
+  AND d.DeletedDate IS NULL
+  AND did.RemovedDate IS NULL;
+
+-- Advanced: Multiple field search (FIRST NAME = Joe AND SSN starts with '9876')
+SELECT DISTINCT d.*
+FROM Documents d
+WHERE d.DocumentTypeId = 1
+  AND EXISTS (
+      SELECT 1 FROM DocumentIndexData did
+      INNER JOIN IndexFields if ON did.IndexFieldId = if.IndexFieldId
+      WHERE did.DocumentId = d.DocumentId
+        AND if.FieldName = 'FIRST NAME'
+        AND did.FieldValue = 'Joe'
+        AND did.RemovedDate IS NULL
+  )
+  AND EXISTS (
+      SELECT 1 FROM DocumentIndexData did
+      INNER JOIN IndexFields if ON did.IndexFieldId = if.IndexFieldId
+      WHERE did.DocumentId = d.DocumentId
+        AND if.FieldName = 'SSN'
+        AND did.FieldValue LIKE '9876%'
+        AND did.RemovedDate IS NULL
+  )
+  AND d.DeletedDate IS NULL;
+```
+
 ### Document Upload Process
 
 **Required during upload**:
@@ -1123,23 +1449,24 @@ WHERE DocumentId = '...';
 
 **Required during upload**:
 1. **Document Type** (mandatory selection)
-2. **Required Keywords** (based on DocumentTypeKeywords where IsRequired = 1)
+2. **Required Index Fields** (based on DocumentTypeIndexFields where IsRequired = 1)
 3. **File** (with validation against PreferredFileTypes if configured)
 
 **Upload Workflow**:
 ```
-1. User selects Document Type from dropdown (filtered by groups they belong to)
-2. System loads required/optional keywords for that type
-3. User enters title, description, selects required keywords (+ optional ones)
+1. User selects Document Type from dropdown (e.g., "Legal Residence Form")
+2. System loads required/optional index fields for that type (FIRST NAME, LAST NAME, SSN, etc.)
+3. User enters title, description, fills in index field values
 4. User uploads file
 5. System validates:
-   - All required keywords selected?
+   - All required index fields filled?
+   - Field values match validation rules (regex, max length)?
    - File type matches preferred types? (warning if not, Option B)
    - File size within limit?
-6. Generate DocumentNumber from template (e.g., IR-2026-00001)
+6. Generate DocumentNumber from template (e.g., FORM-2026-00001)
 7. Store file with GUID-based FileStorageKey
 8. Create Documents record
-9. Create DocumentKeywords records
+9. Create DocumentIndexData records (one per field)
 10. Auto-grant access to groups with view permission
 11. Queue for OCR if RequireOCR = 1
 ```
@@ -1192,7 +1519,7 @@ VALUES
     ('AuditLog.Retention.GroupMemberships', '1095', 'Int', 'Audit', 'Membership changes - 3 years'),
     ('AuditLog.Retention.GroupPermissions', '1825', 'Int', 'Audit', 'Permission changes - 5 years'),
     ('AuditLog.Retention.DocumentTypes', '3650', 'Int', 'Audit', 'Config changes - 10 years'),
-    ('AuditLog.Retention.Keywords', '730', 'Int', 'Audit', 'Keyword changes - 2 years'),
+    ('AuditLog.Retention.IndexFields', '730', 'Int', 'Audit', 'Index field changes - 2 years'),
     ('AuditLog.Retention.SystemSettings', '3650', 'Int', 'Audit', 'System config - 10 years'),
     ('AuditLog.Cleanup.Enabled', 'true', 'Bool', 'Audit', 'Enable automatic cleanup job'),
     ('AuditLog.Cleanup.Schedule', '0 2 * * 0', 'String', 'Audit', 'Cron: Run Sunday 2 AM');
@@ -1244,10 +1571,10 @@ VALUES
 3. **Audit Retention**: ✅ Configurable time-based retention per audit table type, automatic deletion (not archive)
 4. **Document Access**: ✅ Auto-grant to all groups with permission to view that document type, no manual sharing
 5. **Permission Model**: ✅ Two-tier (IsGroupAdmin per-group + UserGroup.Manage global)
-6. **Keyword Hierarchy**: ✅ Optional - ParentKeywordId supports nesting, but not required
-7. **Document Type Configuration**: ✅ All options confirmed (name, group, keywords, auto-numbering, file size, file type, OCR, retention, description)
+6. **Index Fields (Keywords)**: ✅ Redesigned as structured fields with values (FIRST NAME = 'Bob', SSN = '123456798')
+7. **Document Type Configuration**: ✅ All options confirmed (name, group, index fields, auto-numbering, file size, file type, OCR, retention, description)
 8. **Document.Share Permission**: ✅ Removed - access is purely automatic based on group permissions
-9. **Document Type Required**: ✅ Mandatory selection during upload, along with all required keywords for that type
+9. **Document Type Required**: ✅ Mandatory selection during upload, along with all required index fields for that type
 
 ### Pending Phase 1 Questions:
 
@@ -1256,11 +1583,11 @@ VALUES
    - Use case: Share document with specific individual without creating a group
    - **Decision**: Defer to Phase 2 - Groups-only for Phase 1 simplicity
 
-2. **Keywords & Access Control**:
-   - Should restricted keywords automatically restrict document access?
-   - Example: If document has keyword "Confidential Evidence", only groups with access to that keyword can see it
-   - **Proposed**: Add `KeywordGroups` table (groups that can use restricted keywords)
-   - **Decision**: Defer to Phase 2
+2. **Index Fields Access Control**:
+   - ✅ **RESOLVED**: Use `IsSensitive` flag + `Search.ViewPII` permission
+   - Fields marked `IsSensitive = 1` are hidden from users without `Search.ViewPII` permission
+   - Simple, consistent with existing permission model
+   - No additional tables needed
 
 3. **File Hash Deduplication**:
    - Should we detect duplicate files and save storage?
@@ -1289,23 +1616,22 @@ VALUES
 ### Document Management (8 tables)
 6. DocumentTypeGroups
 7. DocumentTypes
-8. DocumentTypeKeywords
+8. DocumentTypeMetadataFields
 9. Documents
 10. DocumentVersions
 11. DocumentGroups (access control)
-12. Keywords
-13. DocumentKeywords
+12. MetadataFields
+13. DocumentMetadata
 
-### System & Operations (4 tables)
+### System & Operations (3 tables)
 14. SystemSettings
 15. OcrQueue
 16. Notifications
-17. DocumentMetadataFields (optional)
 
 ### Audit Logs (11 separate tables)
-18-28. AuditLog_* (Users, UserGroups, GroupMemberships, GroupPermissions, Documents, DocumentAccess, DocumentTypes, DocumentTypeGroups, Keywords, SystemSettings, Authentication)
+17-27. AuditLog_* (Users, UserGroups, GroupMemberships, GroupPermissions, Documents, DocumentAccess, DocumentTypes, DocumentTypeGroups, IndexFields, SystemSettings, Authentication)
 
-**Total**: 17 core + 11 audit = **28 tables for Phase 1**
+**Total**: 16 core + 11 audit = **27 tables for Phase 1**
 
 ---
 
